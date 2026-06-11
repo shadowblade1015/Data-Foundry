@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Data Foundry"
+version = "1.0.0"
+id = "artifacts/data-foundry"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24050
+
+[services.development]
+run = "pnpm --filter @workspace/data-foundry run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/data-foundry", "run", "build" ]
+publicDir = "artifacts/data-foundry/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24050"
+BASE_PATH = "/"

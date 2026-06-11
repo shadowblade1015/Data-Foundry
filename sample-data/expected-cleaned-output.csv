@@ -1,0 +1,21 @@
+School Name,City,State,Standardized Value,Match Confidence,Match Type,Curing Status
+FIU,Miami,FL,Florida International University,100,exact,approved
+Florida Intl University,Miami,FL,Florida International University,95,normalized,approved
+Florida International Univ,Miami,FL,Florida International University,95,normalized,approved
+FL International University,Miami,FL,Florida International University,95,normalized,approved
+Broward Coll,Fort Lauderdale,FL,Broward College,95,normalized,approved
+Broward College,Fort Lauderdale,FL,Broward College,100,exact,approved
+UCF,Orlando,FL,University of Central Florida,100,exact,approved
+University of Central FL,Orlando,FL,University of Central Florida,95,normalized,approved
+Miami Dade,Miami,FL,Miami Dade College,88,fuzzy,approved
+Miami-Dade College,Miami,FL,Miami Dade College,100,exact,approved
+UM,Miami,FL,University of Miami,100,exact,approved
+Univ of Miami,Miami,FL,University of Miami,95,normalized,approved
+FAU,Boca Raton,FL,Florida Atlantic University,100,exact,approved
+Florida Atlantic,Boca Raton,FL,Florida Atlantic University,88,fuzzy,approved
+Nova Southeastern,Davie,FL,Nova Southeastern University,92,fuzzy,approved
+NSU,Davie,FL,Nova Southeastern University,100,exact,approved
+Barry Univ,Miami Shores,FL,Barry University,95,normalized,approved
+,,FL,,0,none,ignored
+Palm Beach State,Lake Worth,FL,Palm Beach State College,92,fuzzy,approved
+PBSC,Lake Worth,FL,Palm Beach State College,100,exact,approved

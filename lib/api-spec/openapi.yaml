@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Data Foundry API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: upload
+    description: File upload operations
+  - name: session
+    description: Curing session operations
+  - name: export
+    description: Export operations
 paths:
   /healthz:
     get:
@@ -24,6 +30,175 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /upload/raw:
+    post:
+      operationId: uploadRawFile
+      tags: [upload]
+      summary: Upload raw CSV file
+      description: Upload a raw messy CSV file via multipart/form-data. Returns a session ID and preview data.
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+        "400":
+          description: Invalid file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /upload/master:
+    post:
+      operationId: uploadMasterFile
+      tags: [upload]
+      summary: Upload master list CSV file
+      description: Upload the master list CSV via multipart/form-data. Requires sessionId field.
+      responses:
+        "200":
+          description: Master file uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResult"
+        "400":
+          description: Invalid file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /session/{sessionId}/cure:
+    post:
+      operationId: runCuring
+      tags: [session]
+      summary: Run the curing/matching process
+      description: Execute exact, normalized, and fuzzy matching against the master list.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CureInput"
+      responses:
+        "200":
+          description: Curing completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CureResult"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /session/{sessionId}/decisions:
+    patch:
+      operationId: updateDecisions
+      tags: [session]
+      summary: Update match decisions
+      description: Approve, correct, or ignore individual match suggestions.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionsInput"
+      responses:
+        "200":
+          description: Decisions updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionUpdateResult"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /session/{sessionId}/summary:
+    get:
+      operationId: getQualitySummary
+      tags: [session]
+      summary: Get data quality summary
+      description: Returns counts and statistics for the current curing session.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Quality summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QualitySummary"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /session/{sessionId}/export/{exportType}:
+    get:
+      operationId: exportFile
+      tags: [export]
+      summary: Export processed data as CSV
+      description: Download cleaned, exceptions, or mapping CSV file.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: exportType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [cleaned, exceptions, mapping]
+      responses:
+        "200":
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +209,183 @@ components:
       required:
         - status
 
+    UploadResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        filename:
+          type: string
+        rowCount:
+          type: integer
+        columns:
+          type: array
+          items:
+            type: string
+        preview:
+          type: array
+          items:
+            type: object
+            additionalProperties:
+              type: string
+      required:
+        - sessionId
+        - filename
+        - rowCount
+        - columns
+        - preview
+
+    CureInput:
+      type: object
+      properties:
+        rawColumn:
+          type: string
+          description: Column name in the raw file to cure
+        masterColumn:
+          type: string
+          description: Column name in the master list to match against
+        outputColumnName:
+          type: string
+          description: Output column name for the standardized value
+          default: Standardized Value
+      required:
+        - rawColumn
+        - masterColumn
+
+    MatchRow:
+      type: object
+      properties:
+        rowIndex:
+          type: integer
+        originalValue:
+          type: string
+        suggestedValue:
+          type: ["string", "null"]
+        confidenceScore:
+          type: number
+        matchType:
+          type: string
+          enum: [exact, normalized, fuzzy, none]
+        status:
+          type: string
+          enum: [approved, corrected, ignored, pending]
+        correctedValue:
+          type: ["string", "null"]
+      required:
+        - rowIndex
+        - originalValue
+        - confidenceScore
+        - matchType
+        - status
+
+    CureResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchRow"
+        totalRows:
+          type: integer
+        rawColumn:
+          type: string
+        masterColumn:
+          type: string
+        outputColumnName:
+          type: string
+      required:
+        - sessionId
+        - matches
+        - totalRows
+        - rawColumn
+        - masterColumn
+        - outputColumnName
+
+    DecisionItem:
+      type: object
+      properties:
+        rowIndex:
+          type: integer
+        status:
+          type: string
+          enum: [approved, corrected, ignored]
+        correctedValue:
+          type: ["string", "null"]
+      required:
+        - rowIndex
+        - status
+
+    DecisionsInput:
+      type: object
+      properties:
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DecisionItem"
+      required:
+        - decisions
+
+    DecisionUpdateResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        updatedCount:
+          type: integer
+      required:
+        - sessionId
+        - updatedCount
+
+    QualitySummary:
+      type: object
+      properties:
+        totalRows:
+          type: integer
+        uniqueRawValues:
+          type: integer
+        exactMatches:
+          type: integer
+        normalizedMatches:
+          type: integer
+        fuzzyMatches:
+          type: integer
+        needsReview:
+          type: integer
+        noMatch:
+          type: integer
+        blankValues:
+          type: integer
+        duplicateValues:
+          type: integer
+        approved:
+          type: integer
+        corrected:
+          type: integer
+        ignored:
+          type: integer
+        pending:
+          type: integer
+      required:
+        - totalRows
+        - uniqueRawValues
+        - exactMatches
+        - normalizedMatches
+        - fuzzyMatches
+        - needsReview
+        - noMatch
+        - blankValues
+        - duplicateValues
+        - approved
+        - corrected
+        - ignored
+        - pending
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
