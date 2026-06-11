@@ -52,9 +52,10 @@ export default function MapPage() {
           toast({ title: "Curing complete!" });
           setLocation("/review");
         },
-        onError: () => {
+        onError: (err) => {
           setCureStatus("idle");
-          toast({ title: "Curing failed", variant: "destructive" });
+          const message = err instanceof Error ? err.message : "Curing failed";
+          toast({ title: "Curing failed", description: message, variant: "destructive" });
         }
       }
     );

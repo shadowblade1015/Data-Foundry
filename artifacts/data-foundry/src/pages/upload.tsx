@@ -1,21 +1,38 @@
 import { useState, useRef } from "react";
 import { useLocation } from "wouter";
-import { UploadCloud, FileSpreadsheet, Play, CheckCircle2 } from "lucide-react";
+import { UploadCloud, FileSpreadsheet, Play, CheckCircle2, X } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
+async function parseErrorResponse(res: Response): Promise<string> {
+  try {
+    const body = await res.json();
+    return body?.error ?? `Server error (${res.status})`;
+  } catch {
+    return `Server error (${res.status})`;
+  }
+}
+
 export default function UploadPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { sessionId, setSessionId, rawFile, setRawFile, masterFile, setMasterFile } = useSession();
-  
+  const { sessionId, setSessionId, rawFile, setRawFile, masterFile, setMasterFile, resetSession } = useSession();
+
   const [isUploadingRaw, setIsUploadingRaw] = useState(false);
   const [isUploadingMaster, setIsUploadingMaster] = useState(false);
 
   const rawInputRef = useRef<HTMLInputElement>(null);
   const masterInputRef = useRef<HTMLInputElement>(null);
+
+  const resetRawInput = () => {
+    if (rawInputRef.current) rawInputRef.current.value = "";
+  };
+
+  const resetMasterInput = () => {
+    if (masterInputRef.current) masterInputRef.current.value = "";
+  };
 
   const handleRawUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,13 +46,18 @@ export default function UploadPage() {
         method: "POST",
         body: form,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const message = await parseErrorResponse(res);
+        throw new Error(message);
+      }
       const data = await res.json();
       setSessionId(data.sessionId);
       setRawFile(data);
-      toast({ title: "Raw file uploaded successfully" });
+      toast({ title: `Uploaded: ${data.filename}`, description: `${data.rowCount} rows · ${data.columns.length} columns` });
     } catch (err) {
-      toast({ title: "Error uploading raw file", variant: "destructive" });
+      resetRawInput();
+      const message = err instanceof Error ? err.message : "Failed to upload file";
+      toast({ title: "Upload failed", description: message, variant: "destructive" });
     } finally {
       setIsUploadingRaw(false);
     }
@@ -43,8 +65,11 @@ export default function UploadPage() {
 
   const handleMasterUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !sessionId) {
-      toast({ title: "Please upload the raw file first to create a session", variant: "destructive" });
+    if (!file) return;
+
+    if (!sessionId) {
+      resetMasterInput();
+      toast({ title: "Upload raw file first", description: "A session must exist before uploading the master list.", variant: "destructive" });
       return;
     }
 
@@ -57,20 +82,31 @@ export default function UploadPage() {
         method: "POST",
         body: form,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok) {
+        const message = await parseErrorResponse(res);
+        throw new Error(message);
+      }
       const data = await res.json();
       setMasterFile(data);
-      toast({ title: "Master file uploaded successfully" });
+      toast({ title: `Uploaded: ${data.filename}`, description: `${data.rowCount} rows · ${data.columns.length} columns` });
     } catch (err) {
-      toast({ title: "Error uploading master file", variant: "destructive" });
+      resetMasterInput();
+      const message = err instanceof Error ? err.message : "Failed to upload file";
+      toast({ title: "Upload failed", description: message, variant: "destructive" });
     } finally {
       setIsUploadingMaster(false);
     }
   };
 
-  const loadDemoData = async () => {
-    toast({ title: "Demo data loaded (Mock)" });
-    // For a real implementation, you'd fetch known demo files or trigger a mock response.
+  const handleClearRaw = () => {
+    resetSession();
+    resetRawInput();
+    resetMasterInput();
+  };
+
+  const handleClearMaster = () => {
+    setMasterFile(null);
+    resetMasterInput();
   };
 
   return (
@@ -95,8 +131,21 @@ export default function UploadPage() {
               <p className="text-sm text-muted-foreground mt-1">The messy data that needs cleaning</p>
             </div>
             {rawFile ? (
-              <div className="text-sm font-medium text-primary">
-                {rawFile.filename} ({rawFile.rowCount} rows)
+              <div className="w-full space-y-2">
+                <div className="text-sm font-medium text-primary">
+                  {rawFile.filename}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {rawFile.rowCount} rows · {rawFile.columns.length} columns
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={handleClearRaw}
+                >
+                  <X className="w-3 h-3 mr-1" /> Remove
+                </Button>
               </div>
             ) : (
               <>
@@ -108,7 +157,7 @@ export default function UploadPage() {
                   onChange={handleRawUpload}
                   data-testid="input-raw-file"
                 />
-                <Button 
+                <Button
                   onClick={() => rawInputRef.current?.click()}
                   disabled={isUploadingRaw}
                   className="w-full"
@@ -122,7 +171,7 @@ export default function UploadPage() {
           </CardContent>
         </Card>
 
-        <Card className={`border-border/50 transition-colors ${!sessionId ? 'opacity-50 grayscale cursor-not-allowed' : 'bg-card/40 hover:border-primary/50'}`}>
+        <Card className={`border-border/50 transition-colors ${!sessionId ? 'opacity-50 grayscale' : 'bg-card/40 hover:border-primary/50'}`}>
           <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
             <div className={`p-4 rounded-full ${masterFile ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
               {masterFile ? <CheckCircle2 className="w-8 h-8" /> : <FileSpreadsheet className="w-8 h-8" />}
@@ -132,8 +181,21 @@ export default function UploadPage() {
               <p className="text-sm text-muted-foreground mt-1">The source of truth to match against</p>
             </div>
             {masterFile ? (
-              <div className="text-sm font-medium text-primary">
-                {masterFile.filename} ({masterFile.rowCount} rows)
+              <div className="w-full space-y-2">
+                <div className="text-sm font-medium text-primary">
+                  {masterFile.filename}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {masterFile.rowCount} rows · {masterFile.columns.length} columns
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={handleClearMaster}
+                >
+                  <X className="w-3 h-3 mr-1" /> Remove
+                </Button>
               </div>
             ) : (
               <>
@@ -146,7 +208,7 @@ export default function UploadPage() {
                   disabled={!sessionId}
                   data-testid="input-master-file"
                 />
-                <Button 
+                <Button
                   onClick={() => masterInputRef.current?.click()}
                   disabled={!sessionId || isUploadingMaster}
                   className="w-full"
@@ -163,8 +225,8 @@ export default function UploadPage() {
       </div>
 
       <div className="flex flex-col items-center justify-center pt-8 space-y-4 border-t border-border/50">
-        <Button 
-          size="lg" 
+        <Button
+          size="lg"
           disabled={!rawFile || !masterFile}
           onClick={() => setLocation("/map")}
           className="w-full md:w-auto min-w-[240px] text-lg font-semibold"
@@ -173,13 +235,6 @@ export default function UploadPage() {
           Continue to Column Mapping
           <Play className="w-5 h-5 ml-2" />
         </Button>
-        <button 
-          onClick={loadDemoData}
-          className="text-sm text-muted-foreground hover:text-primary transition-colors underline underline-offset-4"
-          data-testid="button-load-demo"
-        >
-          Or load demo data to try it out
-        </button>
       </div>
     </div>
   );

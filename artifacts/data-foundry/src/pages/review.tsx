@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Check, X, Edit2, Save, Filter } from "lucide-react";
+import { Check, X, Edit2, Save } from "lucide-react";
 import { useSession } from "@/lib/session";
 import { useUpdateDecisions, MatchRow } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -46,23 +46,30 @@ export default function ReviewPage() {
   };
 
   const handleSaveAllDecisions = () => {
-    // Only send the ones that have a status determined
-    const decisionsToSave = matches.filter(m => m.status !== "pending").map(m => ({
-      rowIndex: m.rowIndex,
-      status: m.status as any, // TypeScript compatibility with generated types
-      correctedValue: m.correctedValue || null
-    }));
+    const decisionsToSave = matches
+      .filter(m => m.status !== "pending")
+      .map(m => ({
+        rowIndex: m.rowIndex,
+        status: m.status as any,
+        correctedValue: m.correctedValue || null,
+      }));
+
+    if (decisionsToSave.length === 0) {
+      setLocation("/summary");
+      return;
+    }
 
     updateDecisionsMutation.mutate({
       sessionId,
       data: { decisions: decisionsToSave }
     }, {
       onSuccess: () => {
-        toast({ title: "Decisions saved successfully" });
+        toast({ title: "Decisions saved" });
         setLocation("/summary");
       },
-      onError: () => {
-        toast({ title: "Failed to save decisions", variant: "destructive" });
+      onError: (err) => {
+        const message = err instanceof Error ? err.message : "Failed to save decisions";
+        toast({ title: "Save failed", description: message, variant: "destructive" });
       }
     });
   };

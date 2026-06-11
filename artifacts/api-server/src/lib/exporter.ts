@@ -2,7 +2,7 @@ import type { ParsedFile, MatchRow } from "./session-store";
 
 function escapeCsv(value: string | null | undefined): string {
   const str = value ?? "";
-  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
@@ -10,6 +10,14 @@ function escapeCsv(value: string | null | undefined): string {
 
 function rowToLine(values: string[]): string {
   return values.map(escapeCsv).join(",");
+}
+
+function resolvedValue(match: MatchRow): string {
+  if (match.status === "corrected") return match.correctedValue ?? "";
+  if (match.status === "approved") return match.suggestedValue ?? "";
+  if (match.matchType === "exact" || match.matchType === "normalized") return match.suggestedValue ?? "";
+  if (match.status === "ignored") return "";
+  return match.suggestedValue ?? "";
 }
 
 export function buildCleanedCsv(
@@ -31,18 +39,9 @@ export function buildCleanedCsv(
     const row = rawFile.rows[i];
     const match = matches[i];
 
-    const standardized =
-      match?.status === "corrected"
-        ? match.correctedValue ?? ""
-        : match?.status === "approved" || match?.matchType === "exact" || match?.matchType === "normalized"
-        ? match.suggestedValue ?? ""
-        : match?.status === "ignored"
-        ? ""
-        : match?.suggestedValue ?? "";
-
     const values = [
       ...rawFile.columns.map((col) => row[col] ?? ""),
-      standardized,
+      match ? resolvedValue(match) : "",
       match ? String(match.confidenceScore) : "0",
       match ? match.matchType : "none",
       match ? match.status : "pending",
@@ -50,7 +49,7 @@ export function buildCleanedCsv(
     lines.push(rowToLine(values));
   }
 
-  return lines.join("\n");
+  return lines.join("\n") + "\n";
 }
 
 export function buildExceptionsCsv(
@@ -72,23 +71,26 @@ export function buildExceptionsCsv(
     const match = matches[i];
     if (!match) continue;
 
+    const isBlank = !match.originalValue || match.originalValue.trim() === "";
+
+    if (match.status === "corrected") continue;
+
     const isException =
-      match.matchType === "none" ||
+      isBlank ||
       match.status === "ignored" ||
-      match.confidenceScore < 75 ||
-      !match.originalValue ||
-      match.originalValue.trim() === "";
+      match.matchType === "none" ||
+      match.confidenceScore < 75;
 
     if (!isException) continue;
 
     let reason = "";
-    if (!match.originalValue || match.originalValue.trim() === "") {
+    if (isBlank) {
       reason = "Blank value";
     } else if (match.status === "ignored") {
       reason = "Ignored by user";
-    } else if (match.matchType === "none") {
-      reason = "No confident match found";
-    } else if (match.confidenceScore < 75) {
+    } else if (match.matchType === "none" && match.confidenceScore === 0) {
+      reason = "No match found";
+    } else if (match.matchType === "none" || match.confidenceScore < 75) {
       reason = "Low confidence match";
     }
 
@@ -102,31 +104,39 @@ export function buildExceptionsCsv(
     lines.push(rowToLine(values));
   }
 
-  return lines.join("\n");
+  return lines.join("\n") + "\n";
 }
 
 export function buildMappingCsv(matches: MatchRow[]): string {
   const headers = [
     "Original Raw Value",
-    "Approved Standardized Value",
+    "Standardized Value",
     "Confidence Score",
     "Match Type",
-    "Approved Status",
+    "Decision",
   ];
 
   const lines: string[] = [rowToLine(headers)];
 
+  const seen = new Set<string>();
+
   for (const match of matches) {
-    const approvedValue =
+    if (match.status !== "approved" && match.status !== "corrected") continue;
+
+    const standardized =
       match.status === "corrected"
         ? match.correctedValue ?? ""
-        : match.status === "approved"
-        ? match.suggestedValue ?? ""
-        : "";
+        : match.suggestedValue ?? "";
+
+    if (!standardized) continue;
+
+    const key = `${match.originalValue}|||${standardized}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
 
     const values = [
       match.originalValue,
-      approvedValue,
+      standardized,
       String(match.confidenceScore),
       match.matchType,
       match.status,
@@ -134,5 +144,5 @@ export function buildMappingCsv(matches: MatchRow[]): string {
     lines.push(rowToLine(values));
   }
 
-  return lines.join("\n");
+  return lines.join("\n") + "\n";
 }

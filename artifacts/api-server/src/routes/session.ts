@@ -47,7 +47,7 @@ router.post("/session/:sessionId/cure", (req, res) => {
     const masterValues = session.masterFile.rows.map((row) => row[masterColumn] ?? "").filter(Boolean);
 
     const matches = matchRows(rawValues, masterValues);
-    const colName = outputColumnName ?? "Standardized Value";
+    const colName = outputColumnName?.trim() || "Standardized Value";
 
     updateSession(sessionId, {
       rawColumn,
