@@ -1,0 +1,350 @@
+Build a web app called **Data Foundry** for Horizon Forge Systems.
+
+## Product Concept
+
+Data Foundry is a practical data curing tool that helps users clean, format, standardize, and prepare messy spreadsheet data before importing it into systems like CRMs, databases, reporting tools, or internal workflows.
+
+The overall purpose is to take raw, inconsistent data and help users cure it into a cleaner, standardized, import-ready format.
+
+The MVP should focus on one core workflow:
+
+## MVP Feature: Master List Curing / List Standardizer
+
+The main feature allows a user to upload a messy raw list and cure it against a trusted master list. The goal is to make values in the raw file match the official standards in the master list.
+
+Example use case:
+A user has a raw CSV with inconsistent school names such as:
+
+* FIU
+* Florida Intl University
+* FL International Univ
+* Broward Coll
+* UCF
+
+The user also has a master list with official standardized names such as:
+
+* Florida International University
+* Broward College
+* University of Central Florida
+
+Data Foundry should suggest matches, assign confidence scores, allow human review, and export a cleaned file.
+
+## Core MVP Workflow
+
+1. User uploads a raw CSV file.
+2. User uploads a master list CSV file.
+3. App previews both files.
+4. User selects the raw column that needs to be cured.
+5. User selects the master list column that contains the official standardized values.
+6. App normalizes both columns for comparison.
+7. App performs matching using:
+
+   * exact match
+   * normalized match
+   * fuzzy match
+8. App generates a review table showing:
+
+   * original raw value
+   * suggested standardized value
+   * confidence score
+   * match type
+   * status
+   * approve option
+   * manual correction option
+   * ignore/no match option
+9. User reviews and approves/corrects matches.
+10. App applies approved matches to the original raw file.
+11. User exports:
+
+* cleaned CSV
+* exceptions CSV
+* mapping CSV
+
+## General Data Curing Functions for MVP
+
+Include basic reusable data curing functions:
+
+* Trim leading/trailing spaces
+* Remove duplicate spaces
+* Normalize casing
+* Remove unnecessary punctuation for comparison
+* Detect blank values
+* Detect duplicate rows
+* Detect duplicate values in selected columns
+* Identify unmatched values
+* Identify low-confidence matches
+* Generate a simple data quality summary
+
+The app should be designed so additional curing modules can be added later.
+
+## Matching Logic
+
+Create a matching engine that works in stages:
+
+### Stage 1: Exact Match
+
+If the raw value exactly matches a master list value, mark it as exact match with 100% confidence.
+
+### Stage 2: Normalized Match
+
+Normalize both values by:
+
+* converting to lowercase
+* trimming spaces
+* removing punctuation
+* replacing common abbreviations
+* removing duplicate spaces
+
+If normalized values match, mark it as normalized match with 95% confidence.
+
+### Stage 3: Fuzzy Match
+
+Use fuzzy matching to suggest the closest master list value.
+
+Use confidence scoring:
+
+* 90–100: Strong match
+* 75–89: Needs review
+* Below 75: No confident match
+
+Use `rapidfuzz` if building in Python.
+
+## Recommended Tech Stack
+
+Use:
+
+* Python
+* FastAPI
+* pandas
+* rapidfuzz
+* simple HTML/CSS/JavaScript frontend
+
+Do not add login, billing, AI APIs, or permanent database storage yet.
+
+This MVP should process files temporarily and allow the user to download results.
+
+## Pages / Screens
+
+Create these screens:
+
+### 1. Landing / Upload Screen
+
+Explain what Data Foundry does.
+
+Headline:
+“Cure messy spreadsheets into clean, standardized data.”
+
+Subtext:
+“Upload raw data, compare it against a trusted master list, review suggested matches, and export clean import-ready files.”
+
+Include upload areas for:
+
+* Raw CSV
+* Master List CSV
+
+### 2. Column Mapping Screen
+
+After upload, show a preview of both files and allow the user to select:
+
+* Raw column to cure
+* Master list standard column
+* Optional output column name
+
+Default output column name:
+`Standardized Value`
+
+### 3. Review Matches Screen
+
+Show a table with:
+
+* Row number
+* Original value
+* Suggested standardized value
+* Confidence score
+* Match type
+* Status
+* Approve button
+* Manual correction field/dropdown
+* Ignore button
+
+Include filters:
+
+* Show all
+* Exact matches
+* Strong matches
+* Needs review
+* No match
+
+### 4. Data Quality Summary Screen / Panel
+
+Show:
+
+* total rows
+* unique raw values
+* exact matches
+* normalized matches
+* fuzzy matches
+* needs review
+* no match
+* blank values
+* duplicate values
+
+### 5. Export Screen
+
+Allow downloads for:
+
+* cleaned CSV
+* exceptions CSV
+* mapping CSV
+
+## Export Requirements
+
+### Cleaned CSV
+
+The cleaned CSV should include all original columns plus:
+
+* Standardized Value
+* Match Confidence
+* Match Type
+* Curing Status
+
+### Exceptions CSV
+
+The exceptions CSV should include rows that:
+
+* had no match
+* had low confidence
+* were ignored
+* had blank values
+
+### Mapping CSV
+
+The mapping CSV should include:
+
+* Original Raw Value
+* Approved Standardized Value
+* Confidence Score
+* Match Type
+* Approved Status
+
+This mapping CSV can later be reused as memory for future curing runs.
+
+## Branding / Design
+
+Use a professional, clean design for Horizon Forge Systems.
+
+Style direction:
+
+* dark charcoal background or header
+* ember orange accent color
+* clean modern cards
+* data table layout
+* professional SaaS dashboard feel
+* not overly flashy
+* not fantasy blacksmith themed
+
+Brand language:
+
+* “Cure Data”
+* “Master List”
+* “Standardize”
+* “Review Queue”
+* “Export Clean File”
+* “Data Quality Summary”
+
+## Sample Data
+
+Create sample demo files inside a `sample-data` folder:
+
+1. `raw-schools-demo.csv`
+2. `master-schools-demo.csv`
+3. `expected-cleaned-output.csv`
+
+Sample raw values should include messy school names like:
+
+* FIU
+* Florida Intl University
+* Florida International Univ
+* FL International University
+* Broward Coll
+* Broward College
+* UCF
+* University of Central FL
+* Miami Dade
+* Miami-Dade College
+
+Sample master values should include:
+
+* Florida International University
+* Broward College
+* University of Central Florida
+* Miami Dade College
+
+## File Structure
+
+Create a clean project structure:
+
+data-foundry/
+├── README.md
+├── .env.example
+├── backend/
+│   ├── main.py
+│   ├── matching.py
+│   ├── cleaning.py
+│   └── exports.py
+├── frontend/
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
+├── sample-data/
+│   ├── raw-schools-demo.csv
+│   ├── master-schools-demo.csv
+│   └── expected-cleaned-output.csv
+└── tests/
+├── test_cleaning.py
+└── test_matching.py
+
+## Security and Privacy Requirements
+
+* Do not permanently store uploaded files.
+* Do not include real student data.
+* Do not send uploaded data to AI APIs.
+* Validate file types.
+* Only allow CSV files for the MVP.
+* Limit upload size.
+* Sanitize filenames.
+* Include clear error messages for bad files or missing columns.
+* Include `.env.example` but do not include real secrets.
+
+## MVP Constraints
+
+Keep this simple and functional.
+
+Do not build:
+
+* user accounts
+* database storage
+* billing
+* team permissions
+* AI chat
+* complex dashboards
+* Salesforce integration
+* Google Drive integration
+* Excel upload yet
+
+Those can come later.
+
+## Final MVP Goal
+
+At the end of this build, I should be able to:
+
+1. Open the app.
+2. Upload a messy raw CSV.
+3. Upload a master list CSV.
+4. Select the columns to compare.
+5. Run the curing process.
+6. Review suggested matches.
+7. Approve or correct matches.
+8. Export a cleaned CSV, exceptions CSV, and mapping CSV.
+
+Build this as a working MVP, not just a mockup.
