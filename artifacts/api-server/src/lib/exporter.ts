@@ -16,7 +16,7 @@ function resolvedValue(match: MatchRow): string {
   if (match.status === "corrected") return match.correctedValue ?? "";
   if (match.status === "approved") return match.suggestedValue ?? "";
   if (match.matchType === "exact" || match.matchType === "normalized") return match.suggestedValue ?? "";
-  if (match.status === "ignored") return "";
+  if (match.status === "ignored") return match.originalValue ?? "";
   return match.suggestedValue ?? "";
 }
 
