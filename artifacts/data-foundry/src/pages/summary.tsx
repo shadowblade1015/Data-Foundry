@@ -26,6 +26,14 @@ export default function SummaryPage() {
 
   if (!sessionId || cureStatus !== "done") return null;
 
+  if (error) {
+    return (
+      <div className="text-center p-12 text-destructive">
+        Error loading summary. Please try refreshing.
+      </div>
+    );
+  }
+
   if (isLoading || !summary) {
     return (
       <div className="space-y-6">
@@ -33,14 +41,6 @@ export default function SummaryPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[1,2,3,4,5,6,7,8].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center p-12 text-destructive">
-        Error loading summary. Please try refreshing.
       </div>
     );
   }
