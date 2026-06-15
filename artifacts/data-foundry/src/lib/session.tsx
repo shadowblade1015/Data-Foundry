@@ -1,46 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { UploadResult, MatchRow } from "@workspace/api-client-react";
-
-const STORAGE_KEY = "data-foundry-session";
-
-type CureStatus = "idle" | "running" | "done";
-
-interface PersistedSession {
-  sessionId: string | null;
-  cureStatus: CureStatus;
-  rawFile: UploadResult | null;
-  masterFile: UploadResult | null;
-  rawColumn: string | null;
-  masterColumn: string | null;
-  outputColumnName: string;
-}
-
-// Strip preview rows before persisting: those contain actual uploaded cell
-// data, and we only want lightweight metadata (filename/columns/row count)
-// to satisfy page guards after a refresh.
-function stripContent(file: UploadResult | null): UploadResult | null {
-  if (!file) return null;
-  return { ...file, preview: [] };
-}
-
-function loadPersisted(): Partial<PersistedSession> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Partial<PersistedSession>) : {};
-  } catch {
-    return {};
-  }
-}
-
-export function clearPersistedSession(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* ignore storage errors */
-  }
-}
+import {
+  CureStatus,
+  loadPersisted,
+  persistSession,
+  clearPersistedSession,
+  stripContent,
+} from "@/lib/session-storage";
 
 interface SessionState {
   sessionId: string | null;
@@ -85,24 +51,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Persist lightweight session metadata so a browser refresh does not destroy
   // the workflow. Uploaded file contents (preview rows, matches) are excluded.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (sessionId) {
-        const data: PersistedSession = {
-          sessionId,
-          cureStatus,
-          rawFile: stripContent(rawFile),
-          masterFile: stripContent(masterFile),
-          rawColumn,
-          masterColumn,
-          outputColumnName,
-        };
-        window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } else {
-        window.sessionStorage.removeItem(STORAGE_KEY);
-      }
-    } catch {
-      /* ignore storage errors (quota, privacy mode) */
+    if (sessionId) {
+      persistSession({
+        sessionId,
+        cureStatus,
+        rawFile: stripContent(rawFile),
+        masterFile: stripContent(masterFile),
+        rawColumn,
+        masterColumn,
+        outputColumnName,
+      });
+    } else {
+      clearPersistedSession();
     }
   }, [sessionId, cureStatus, rawFile, masterFile, rawColumn, masterColumn, outputColumnName]);
 

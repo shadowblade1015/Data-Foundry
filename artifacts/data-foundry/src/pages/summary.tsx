@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { useSession, clearPersistedSession } from "@/lib/session";
+import { useSession } from "@/lib/session";
+import { clearPersistedSession } from "@/lib/session-storage";
 import { useGetQualitySummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
