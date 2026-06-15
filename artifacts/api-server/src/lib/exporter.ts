@@ -1,7 +1,15 @@
 import type { ParsedFile, MatchRow } from "./session-store";
 
+// Leading characters that spreadsheet apps (Excel, Google Sheets) interpret as
+// the start of a formula. Cells beginning with one of these are prefixed with a
+// single quote so they are treated as literal text — preventing CSV injection.
+const FORMULA_TRIGGERS = new Set(["=", "+", "-", "@", "\t", "\r"]);
+
 function escapeCsv(value: string | null | undefined): string {
-  const str = value ?? "";
+  let str = value ?? "";
+  if (str.length > 0 && FORMULA_TRIGGERS.has(str[0])) {
+    str = `'${str}`;
+  }
   if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
     return `"${str.replace(/"/g, '""')}"`;
   }
@@ -121,14 +129,23 @@ export function buildMappingCsv(matches: MatchRow[]): string {
   const seen = new Set<string>();
 
   for (const match of matches) {
-    if (match.status !== "approved" && match.status !== "corrected") continue;
-
-    const standardized =
-      match.status === "corrected"
-        ? match.correctedValue ?? ""
-        : match.suggestedValue ?? "";
-
+    // Use the exact same resolution the cleaned export uses, so the mapping
+    // file always agrees with the standardized values written to cleaned-data.
+    const standardized = resolvedValue(match);
     if (!standardized) continue;
+
+    const changed = standardized !== (match.originalValue ?? "");
+    const isPositiveMatch =
+      match.matchType === "exact" ||
+      match.matchType === "normalized" ||
+      match.matchType === "fuzzy";
+    const isDecision = match.status === "approved" || match.status === "corrected";
+
+    // A finalized mapping is an auto-applied real match (exact/normalized/fuzzy)
+    // or an explicit user decision (approved/corrected). Skip ignored/no-match
+    // rows unless the cleaned export actually changed the value.
+    if (!isPositiveMatch && !isDecision && !changed) continue;
+    if (match.status === "ignored" && !changed) continue;
 
     const key = `${match.originalValue}|||${standardized}`;
     if (seen.has(key)) continue;

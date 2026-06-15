@@ -1,15 +1,19 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { useSession } from "@/lib/session";
+import { useSession, clearPersistedSession } from "@/lib/session";
 import { useGetQualitySummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, BarChart3, Database, ShieldAlert, CheckCircle, Zap } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function isSessionExpired(error: unknown): boolean {
+  return (error as { status?: number } | null)?.status === 404;
+}
+
 export default function SummaryPage() {
   const [, setLocation] = useLocation();
-  const { sessionId, cureStatus } = useSession();
+  const { sessionId, cureStatus, resetSession } = useSession();
 
   useEffect(() => {
     if (!sessionId || cureStatus !== "done") {
@@ -27,9 +31,26 @@ export default function SummaryPage() {
   if (!sessionId || cureStatus !== "done") return null;
 
   if (error) {
+    const expired = isSessionExpired(error);
+    // A 404 means the server session is gone (expired/invalid). Clear the
+    // persisted state so a refresh starts clean, and prompt the user to restart.
+    if (expired) clearPersistedSession();
+
+    const handleStartOver = () => {
+      resetSession();
+      setLocation("/");
+    };
+
     return (
-      <div className="text-center p-12 text-destructive">
-        Error loading summary. Please try refreshing.
+      <div className="text-center p-12 space-y-4">
+        <p className="text-destructive font-medium">
+          {expired
+            ? "Session expired, please start over."
+            : "Error loading summary. Please try refreshing."}
+        </p>
+        <Button variant="outline" onClick={handleStartOver} data-testid="button-session-expired-restart">
+          Start a new session
+        </Button>
       </div>
     );
   }
